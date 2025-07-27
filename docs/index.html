@@ -200,162 +200,190 @@
   <datalist id="deviceList"></datalist>  
   <datalist id="antennaList"></datalist>  
   
-  <script>  
-    let logData = JSON.parse(localStorage.getItem('logData') || '[]');  
-    let deviceDict = JSON.parse(localStorage.getItem('deviceDict') || '[]');  
-    let antennaDict = JSON.parse(localStorage.getItem('antennaDict') || '[]');  
+<script>
+  let logData = JSON.parse(localStorage.getItem('logData') || '[]');
+  let deviceDict = JSON.parse(localStorage.getItem('deviceDict') || '[]');
+  let antennaDict = JSON.parse(localStorage.getItem('antennaDict') || '[]');
+
+  // 默认时间输入，格式HH:mm
+  function getCurrentTimeStr() {
+    const now = new Date();
+    return now.toTimeString().slice(0,5);
+  }
+
+  function renderDict(id, data) {
+    const list = document.getElementById(id);
+    list.innerHTML = data.map(d => `<option value="${d}">`).join('');
+  }
+
+  function renderTable() {
+    const tbody = document.querySelector("#logTable tbody");
+    tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');
+  }
+
+  function addLog() {
+    const controllerVal = document.getElementById("controller").value.trim();
+    if (!controllerVal) {
+      alert("请填写点名主控呼号！");
+      return;
+    }
+    // 取时间输入框的值，没有就用当前时间
+    let timeInput = document.getElementById("time");
+    let timeStr = timeInput ? timeInput.value : getCurrentTimeStr();
+    if (!timeStr) timeStr = getCurrentTimeStr();
+
+    const row = [
+      timeStr,
+      controllerVal,
+      document.getElementById("callsign").value.trim(),
+      document.getElementById("report").value.trim(),
+      document.getElementById("qth").value.trim(),
+      document.getElementById("device").value.trim(),
+      document.getElementById("power").value.trim(),
+      document.getElementById("antenna").value.trim(),
+      document.getElementById("height").value.trim(),
+    ];
+    logData.push(row);
+    localStorage.setItem("logData", JSON.stringify(logData));
+    renderTable();
+
+    // 清空除主控和时间外输入框
+    document.getElementById("callsign").value = "";
+    document.getElementById("report").value = "";
+    document.getElementById("qth").value = "";
+    document.getElementById("device").value = "";
+    document.getElementById("power").value = "";
+    document.getElementById("antenna").value = "";
+    document.getElementById("height").value = "";
+    if(timeInput) timeInput.value = getCurrentTimeStr(); // 添加完默认时间重置
+  }
+
+  function clearLog() {
+    if (confirm("确定清空所有记录？")) {
+      logData = [];
+      localStorage.removeItem("logData");
+      renderTable();
+    }
+  }
+
+  function addDevice() {
+    const input = document.getElementById("newDevice");
+    const val = input.value.trim();
+    if (val && !deviceDict.includes(val)) {
+      deviceDict.push(val);
+      deviceDict.sort();
+      localStorage.setItem("deviceDict", JSON.stringify(deviceDict));
+      renderDict("deviceList", deviceDict);
+    }
+    input.value = "";  // 添加完清空输入框
+  }
+
+  function importDeviceFromFile() {
+    const fileInput = document.getElementById("deviceFileInput");
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      let lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      const currentSet = new Set(deviceDict);
+      lines.forEach(l => currentSet.add(l));
+      deviceDict = Array.from(currentSet).sort();
+      localStorage.setItem("deviceDict", JSON.stringify(deviceDict));
+      renderDict("deviceList", deviceDict);
+      fileInput.value = "";  // 导入完清空文件选择
+    };
+    reader.readAsText(file);
+  }
+
+  function addAntenna() {
+    const input = document.getElementById("newAntenna");
+    const val = input.value.trim();
+    if (val && !antennaDict.includes(val)) {
+      antennaDict.push(val);
+      antennaDict.sort();
+      localStorage.setItem("antennaDict", JSON.stringify(antennaDict));
+      renderDict("antennaList", antennaDict);
+    }
+    input.value = "";  // 添加完清空输入框
+  }
+
+  function importAntennaFromFile() {
+    const fileInput = document.getElementById("antennaFileInput");
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+      const currentSet = new Set(antennaDict);
+      lines.forEach(l => currentSet.add(l));
+      antennaDict = Array.from(currentSet).sort();
+      localStorage.setItem("antennaDict", JSON.stringify(antennaDict));
+      renderDict("antennaList", antennaDict);
+      fileInput.value = "";  // 导入完清空文件选择
+    };
+    reader.readAsText(file);
+  }
+
+  function exportExcel() {
+    const grouped = {};
+    for (const row of logData) {
+      const controller = row[1];
+      if (!grouped[controller]) grouped[controller] = [];
+      grouped[controller].push(row);
+    }
+    const ws_data = [];
+    for (const controller in grouped) {
+      ws_data.push(["点名主控:", controller, "", "", "", "", "", "", "", ""]);
+      ws_data.push(["#", "时间", "呼号", "信号报告", "QTH", "设备", "功率", "天线", "高度", ""]);
+      grouped[controller].forEach((r, i) => {
+        const [, , callsign, report, qth, device, power, antenna, height] = r;
+        const time = r[0];
+        ws_data.push([i + 1, time, callsign, report, qth, device, power, antenna, height, ""]);
+      });
+      ws_data.push([]);
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+    for (let i = 0; i < ws_data.length; i++) {
+      for (let col = 0; col < 10; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: i, c: col });
+        if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };
+        ws[cellRef].s = {
+          alignment: { horizontal: "center", vertical: "center" },
+        };
+      }
+      if (ws_data[i][0] === "点名主控:") {
+        for (let col = 0; col < 10; col++) {
+          const cellRef = XLSX.utils.encode_cell({ r: i, c: col });
+          ws[cellRef].s = {
+            fill: { patternType: "solid", fgColor: { rgb: "FFFF99" } },
+            font: { bold: true },
+            alignment: { horizontal: "center", vertical: "center" },
+          };
+        }
+      }
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "点名记录");
+    XLSX.writeFile(wb, `Radio_Log_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  function toggleDarkMode() {
+    document.body.classList.toggle("dark");
+  }
+
+  // 页面初始化
+  renderDict("deviceList", deviceDict);
+  renderDict("antennaList", antennaDict);
+  renderTable();
   
-    function renderDict(id, data) {  
-      const list = document.getElementById(id);  
-      list.innerHTML = data.map(d => `<option value="${d}">`).join('');  
-    }  
-  
-    function renderTable() {  
-      const tbody = document.querySelector("#logTable tbody");  
-      tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');  
-    }  
-  
-    function addLog() {  
-      const now = new Date();  
-      const timeStr = now.toTimeString().slice(0,5);  
-      const row = [  
-        timeStr,  
-        document.getElementById("controller").value.trim(),  
-        document.getElementById("callsign").value.trim(),  
-        document.getElementById("report").value.trim(),  
-        document.getElementById("qth").value.trim(),  
-        document.getElementById("device").value.trim(),  
-        document.getElementById("power").value.trim(),  
-        document.getElementById("antenna").value.trim(),  
-        document.getElementById("height").value.trim(),  
-      ];  
-      logData.push(row);  
-      localStorage.setItem("logData", JSON.stringify(logData));  
-      renderTable();  
-  
-      // 添加完后清空除主控外的输入框  
-      document.getElementById("callsign").value = "";  
-      document.getElementById("report").value = "";  
-      document.getElementById("qth").value = "";  
-      document.getElementById("device").value = "";  
-      document.getElementById("power").value = "";  
-      document.getElementById("antenna").value = "";  
-      document.getElementById("height").value = "";  
-    }  
-  
-    function clearLog() {  
-      if (confirm("确定清空所有记录？")) {  
-        logData = [];  
-        localStorage.removeItem("logData");  
-        renderTable();  
-      }  
-    }  
-  
-    function addDevice() {  
-      const val = document.getElementById("newDevice").value.trim();  
-      if (val && !deviceDict.includes(val)) {  
-        deviceDict.push(val);  
-        deviceDict.sort();  
-        localStorage.setItem("deviceDict", JSON.stringify(deviceDict));  
-        renderDict("deviceList", deviceDict);  
-      }  
-    }  
-  
-    function importDeviceFromFile() {  
-      const file = document.getElementById("deviceFileInput").files[0];  
-      if (!file) return;  
-      const reader = new FileReader();  
-      reader.onload = e => {  
-        const lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);  
-        lines.forEach(l => { if (!deviceDict.includes(l)) deviceDict.push(l); });  
-        deviceDict.sort();  
-        localStorage.setItem("deviceDict", JSON.stringify(deviceDict));  
-        renderDict("deviceList", deviceDict);  
-      };  
-      reader.readAsText(file);  
-    }  
-  
-    function addAntenna() {  
-      const val = document.getElementById("newAntenna").value.trim();  
-      if (val && !antennaDict.includes(val)) {  
-        antennaDict.push(val);  
-        antennaDict.sort();  
-        localStorage.setItem("antennaDict", JSON.stringify(antennaDict));  
-        renderDict("antennaList", antennaDict);  
-      }  
-    }  
-  
-    function importAntennaFromFile() {  
-      const file = document.getElementById("antennaFileInput").files[0];  
-      if (!file) return;  
-      const reader = new FileReader();  
-      reader.onload = e => {  
-        const lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);  
-        lines.forEach(l => { if (!antennaDict.includes(l)) antennaDict.push(l); });  
-        antennaDict.sort();  
-        localStorage.setItem("antennaDict", JSON.stringify(antennaDict));  
-        renderDict("antennaList", antennaDict);  
-      };  
-      reader.readAsText(file);  
-    }  
-  
-    function exportExcel() {  
-      const grouped = {};  
-      for (const row of logData) {  
-        const controller = row[1];  
-        if (!grouped[controller]) grouped[controller] = [];  
-        grouped[controller].push(row);  
-      }  
-      const ws_data = [];  
-      for (const controller in grouped) {  
-        // 点名主控分两列，后面留空占位  
-        ws_data.push(["点名主控:", controller, "", "", "", "", "", "", "", ""]);  
-        ws_data.push(["#", "时间", "呼号", "信号报告", "QTH", "设备", "功率", "天线", "高度", ""]);  
-        grouped[controller].forEach((r, i) => {  
-          const [, , callsign, report, qth, device, power, antenna, height] = r;  
-          const time = r[0];  
-          ws_data.push([i + 1, time, callsign, report, qth, device, power, antenna, height, ""]);  
-        });  
-        ws_data.push([]);  
-      }  
-  
-      const ws = XLSX.utils.aoa_to_sheet(ws_data);  
-  
-      // 样式设置：全部单元格水平垂直居中  
-      for (let i = 0; i < ws_data.length; i++) {  
-        for (let col = 0; col < 10; col++) {  
-          const cellRef = XLSX.utils.encode_cell({ r: i, c: col });  
-          if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };  
-          ws[cellRef].s = {  
-            alignment: { horizontal: "center", vertical: "center" },  
-          };  
-        }  
-        // 主控行加黄底加粗  
-        if (ws_data[i][0] === "点名主控:") {  
-          for (let col = 0; col < 10; col++) {  
-            const cellRef = XLSX.utils.encode_cell({ r: i, c: col });  
-            ws[cellRef].s = {  
-              fill: { patternType: "solid", fgColor: { rgb: "FFFF99" } },  
-              font: { bold: true },  
-              alignment: { horizontal: "center", vertical: "center" },  
-            };  
-          }  
-        }  
-      }  
-  
-      const wb = XLSX.utils.book_new();  
-      XLSX.utils.book_append_sheet(wb, ws, "点名记录");  
-      XLSX.writeFile(wb, `Radio_Log_${new Date().toISOString().slice(0, 10)}.xlsx`);  
-    }  
-  
-    function toggleDarkMode() {  
-      document.body.classList.toggle("dark");  
-    }  
-  
-    renderDict("deviceList", deviceDict);  
-    renderDict("antennaList", antennaDict);  
-    renderTable();  
-  </script>  
+  window.addEventListener('beforeunload', () => {
+  localStorage.removeItem('deviceDict');
+  localStorage.removeItem('antennaDict');
+});
+</script>
   <footer style="text-align:center; margin-top:2em; font-size:0.8em; color: #555;">  
     作者 Mazha0309 / BG5CRL  
   </footer>  
