@@ -1,340 +1,390 @@
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>业余无线电点名记录工具</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    :root {
-      --bg: #f2f7fd;
-      --fg: #222;
-      --card-bg: #ffffff;
-      --btn-bg: #2196f3;
-      --btn-fg: #fff;
-      --input-bg: #ffffff;
-      --accent: #2196f3;
-    }
-    body.dark {
-      --bg: #121212;
-      --fg: #ddd;
-      --card-bg: #1e1e1e;
-      --btn-bg: #0d47a1;
-      --btn-fg: #fff;
-      --input-bg: #333;
-      --accent: #90caf9;
-    }
-    body {
-      margin: 0;
-      padding: 2em 1em;
-      background-color: var(--bg);
-      color: var(--fg);
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .container {
-      max-width: 1000px;
-      margin: auto;
-    }
-    .card {
-      background: var(--card-bg);
-      padding: 1.5em;
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-      margin-bottom: 2em;
-    }
-    h2, h3 {
-      text-align: center;
-      color: var(--accent);
-    }
-    .form-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1em;
-      margin-bottom: 1em;
-    }
-    input, select, button {
-      padding: 0.5em;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 1em;
-      background: var(--input-bg);
-      color: var(--fg);
-      flex: 1;
-    }
-    input[type="file"] {
-      border: none;
-      width: 150px;
-      flex: none;
-    }
-    button {
-      background-color: var(--btn-bg);
-      color: var(--btn-fg);
-      cursor: pointer;
-      transition: background 0.3s ease;
-    }
-    button:hover {
-      background-color: #1976d2;
-    }
-    .table-wrapper {
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      min-width: 800px;
-      border-collapse: collapse;
-      margin-top: 1em;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 0.5em;
-      text-align: center;
-    }
-    #darkToggle {
-      position: fixed;
-      top: 1em;
-      right: 1em;
-      width: 36px;
-      height: 36px;
-      background: var(--btn-bg);
-      color: var(--btn-fg);
-      border: none;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
-    #darkToggle svg {
-      width: 20px;
-      height: 20px;
-      fill: var(--btn-fg);
-    }
-  </style>
-</head>
-<body>
-  <button id="darkToggle" onclick="toggleDarkMode()">
-    <svg viewBox="0 0 24 24"><path d="M12 2a9.93 9.93 0 00-7.07 2.93A10.01 10.01 0 0012 22a10 10 0 000-20zm0 18a7.93 7.93 0 01-5.66-2.34A8 8 0 0112 4a8 8 0 010 16z"/></svg>
-  </button>
-  <div class="container">
-    <div class="card">
-      <h2>业余无线电点名记录工具</h2>
-      <div class="form-row">
-        <input id="controller" placeholder="点名主控呼号" />
-      </div>
-      <div class="form-row">
-        <input id="callsign" placeholder="呼号" />
-        <input id="report" placeholder="信号报告" />
-        <input id="qth" placeholder="QTH" />
-      </div>
-      <div class="form-row">
-        <input id="device" list="deviceList" placeholder="设备" />
-        <input id="power" placeholder="功率" />
-        <input id="antenna" list="antennaList" placeholder="天线" />
-        <input id="height" placeholder="高度" />
-      </div>
-      <div class="form-row">
-        <button onclick="addLog()">添加记录</button>
-        <button onclick="exportExcel()">导出 Excel</button>
-        <button onclick="clearLog()">清空记录</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>设备词典管理</h3>
-      <div class="form-row">
-        <input id="newDevice" placeholder="添加设备名称" />
-        <button onclick="addDevice()">添加到设备词典</button>
-      </div>
-      <div class="form-row">
-        <input type="file" id="deviceFileInput" accept=".txt" />
-        <button onclick="importDeviceFromFile()">导入设备词库</button>
-      </div>
-
-      <h3>天线词典管理</h3>
-      <div class="form-row">
-        <input id="newAntenna" placeholder="添加天线名称" />
-        <button onclick="addAntenna()">添加到天线词典</button>
-      </div>
-      <div class="form-row">
-        <input type="file" id="antennaFileInput" accept=".txt" />
-        <button onclick="importAntennaFromFile()">导入天线词库</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <h3>点名记录</h3>
-        <div style="overflow-x:auto">
-          <table id="logTable">
-            <thead>
-              <tr><th>#</th><th>时间</th><th>点名主控</th><th>呼号</th><th>信号报告</th><th>QTH</th><th>设备</th><th>功率</th><th>天线</th><th>高度</th></tr>
-            </thead>
-          </div>
-        <tbody></tbody>
-      </table>
-    </div>
-  </div>
-
-  <datalist id="deviceList"></datalist>
-  <datalist id="antennaList"></datalist>
-
-  <script>
-    let logData = JSON.parse(localStorage.getItem('logData') || '[]');
-    let deviceDict = JSON.parse(localStorage.getItem('deviceDict') || '[]');
-    let antennaDict = JSON.parse(localStorage.getItem('antennaDict') || '[]');
-
-    function renderDict(id, data) {
-      const list = document.getElementById(id);
-      list.innerHTML = data.map(d => `<option value="${d}">`).join('');
-    }
-
-    function renderTable() {
-      const tbody = document.querySelector("#logTable tbody");
-      tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');
-    }
-
-    function addLog() {
-      const now = new Date();
-      const timeStr = now.toTimeString().slice(0,5);
-      const row = [
-        timeStr,
-      document.getElementById("controller").value.trim(),
-      document.getElementById("callsign").value.trim(),
-      document.getElementById("report").value.trim(),
-      document.getElementById("qth").value.trim(),
-      document.getElementById("device").value.trim(),
-      document.getElementById("power").value.trim(),
-      document.getElementById("antenna").value.trim(),
-      document.getElementById("height").value.trim(),
-        ];
-        logData.push(row);
-        localStorage.setItem("logData", JSON.stringify(logData));
-        renderTable();
-
-      // 添加完后清空除主控外的输入框
-      document.getElementById("callsign").value = "";
-      document.getElementById("report").value = "";
-      document.getElementById("qth").value = "";
-      document.getElementById("device").value = "";
-      document.getElementById("power").value = "";
-      document.getElementById("antenna").value = "";
-      document.getElementById("height").value = "";
-    }
-
-    function clearLog() {
-      if (confirm("确定清空所有记录？")) {
-        logData = [];
-        localStorage.removeItem("logData");
-        renderTable();
-      }
-    }
-
-    function addDevice() {
-      const val = document.getElementById("newDevice").value.trim();
-      if (val && !deviceDict.includes(val)) {
-        deviceDict.push(val);
-        deviceDict.sort();
-        localStorage.setItem("deviceDict", JSON.stringify(deviceDict));
-        renderDict("deviceList", deviceDict);
-      }
-    }
-
-    function importDeviceFromFile() {
-      const file = document.getElementById("deviceFileInput").files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        const lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-        lines.forEach(l => { if (!deviceDict.includes(l)) deviceDict.push(l); });
-        deviceDict.sort();
-        localStorage.setItem("deviceDict", JSON.stringify(deviceDict));
-        renderDict("deviceList", deviceDict);
-      };
-      reader.readAsText(file);
-    }
-
-    function addAntenna() {
-      const val = document.getElementById("newAntenna").value.trim();
-      if (val && !antennaDict.includes(val)) {
-        antennaDict.push(val);
-        antennaDict.sort();
-        localStorage.setItem("antennaDict", JSON.stringify(antennaDict));
-        renderDict("antennaList", antennaDict);
-      }
-    }
-
-    function importAntennaFromFile() {
-      const file = document.getElementById("antennaFileInput").files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => {
-        const lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-        lines.forEach(l => { if (!antennaDict.includes(l)) antennaDict.push(l); });
-        antennaDict.sort();
-        localStorage.setItem("antennaDict", JSON.stringify(antennaDict));
-        renderDict("antennaList", antennaDict);
-      };
-      reader.readAsText(file);
-    }
-
-    function exportExcel() {
-      const grouped = {};
-      for (const row of logData) {
-        const controller = row[1];
-        if (!grouped[controller]) grouped[controller] = [];
-        grouped[controller].push(row);
-      }
-      const ws_data = [];
-      for (const controller in grouped) {
-        // 点名主控分两列，后面留空占位
-        ws_data.push(["点名主控:", controller, "", "", "", "", "", "", "", ""]);
-        ws_data.push(["#", "时间", "呼号", "信号报告", "QTH", "设备", "功率", "天线", "高度", ""]);
-        grouped[controller].forEach((r, i) => {
-          const [, , callsign, report, qth, device, power, antenna, height] = r;
-          const time = r[0];
-          ws_data.push([i + 1, time, callsign, report, qth, device, power, antenna, height, ""]);
-        });
-        ws_data.push([]);
-      }
-
-      const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-      // 样式设置：全部单元格水平垂直居中
-      for (let i = 0; i < ws_data.length; i++) {
-        for (let col = 0; col < 10; col++) {
-          const cellRef = XLSX.utils.encode_cell({ r: i, c: col });
-          if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };
-          ws[cellRef].s = {
-            alignment: { horizontal: "center", vertical: "center" },
-          };
-        }
-        // 主控行加黄底加粗
-        if (ws_data[i][0] === "点名主控:") {
-          for (let col = 0; col < 10; col++) {
-            const cellRef = XLSX.utils.encode_cell({ r: i, c: col });
-            ws[cellRef].s = {
-              fill: { patternType: "solid", fgColor: { rgb: "FFFF99" } },
-              font: { bold: true },
-              alignment: { horizontal: "center", vertical: "center" },
-            };
-          }
-        }
-      }
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "点名记录");
-      XLSX.writeFile(wb, `Radio_Log_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    }
-
-    function toggleDarkMode() {
-      document.body.classList.toggle("dark");
-    }
-
-    renderDict("deviceList", deviceDict);
-    renderDict("antennaList", antennaDict);
-    renderTable();
-  </script>
-  <footer style="text-align:center; padding:1em 0; color: var(--fg); font-size: 0.9em; user-select:none;">
-    作者：Mazha0309 / BG5CRL
-  </footer>
-</body>
+<!DOCTYPE html>  
+<html lang="zh">  
+<head>  
+  <meta charset="UTF-8" />  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />  
+  <title>业余无线电点名记录工具</title>  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>  
+  <style>  
+    :root {  
+      --bg: #f2f7fd;  
+      --fg: #222;  
+      --card-bg: #ffffff;  
+      --btn-bg: #2196f3;  
+      --btn-fg: #fff;  
+      --input-bg: #ffffff;  
+      --accent: #2196f3;  
+    }  
+    body.dark {  
+      --bg: #121212;  
+      --fg: #ddd;  
+      --card-bg: #1e1e1e;  
+      --btn-bg: #0d47a1;  
+      --btn-fg: #fff;  
+      --input-bg: #333;  
+      --accent: #90caf9;  
+    }  
+    body {  
+      margin: 0;  
+      padding: 2em 1em;  
+      background-color: var(--bg);  
+      color: var(--fg);  
+      font-family: 'Segoe UI', sans-serif;  
+      transition: background-color 0.5s ease, color 0.5s ease;  
+    }  
+    body, .card, table, th, td, h2, h3, input, select, button {  
+      transition: background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;  
+    }  
+    .container {  
+      max-width: 1000px;  
+      margin: auto;  
+    }  
+    .card {  
+      background: var(--card-bg);  
+      padding: 1.5em;  
+      border-radius: 12px;  
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);  
+      margin-bottom: 2em;  
+    }  
+    h2, h3 {  
+      text-align: center;  
+      color: var(--accent);  
+    }  
+    .form-row {  
+      display: flex;  
+      flex-wrap: wrap;  
+      gap: 1em;  
+      margin-bottom: 1em;  
+    }  
+    input, select, button {  
+      padding: 0.5em;  
+      border: 1px solid #ccc;  
+      border-radius: 6px;  
+      font-size: 1em;  
+      background: var(--input-bg);  
+      color: var(--fg);  
+      flex: 1;  
+    }  
+    input[type="file"] {  
+      border: none;  
+      width: 150px;  
+      flex: none;  
+    }  
+    button {  
+      background-color: var(--btn-bg);  
+      color: var(--btn-fg);  
+      cursor: pointer;  
+      transition: background 0.3s ease;  
+      -webkit-tap-highlight-color: transparent; /* 移除Android点击高亮 */  
+    }  
+    button:hover {  
+      background-color: #1976d2;  
+    }  
+    button:focus {  
+      outline: none;  
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.5); /* 淡蓝色光晕 */  
+    }  
+    .table-wrapper {  
+      overflow-x: auto;  
+    }  
+    table {  
+      width: 100%;  
+      min-width: 800px;  
+      border-collapse: collapse;  
+      margin-top: 1em;  
+    }  
+    th, td {  
+      border: 1px solid #ccc;  
+      padding: 0.5em;  
+      text-align: center;  
+    }  
+    #darkToggle {  
+      position: fixed;  
+      top: 1em;  
+      right: 1em;  
+      width: 36px;  
+      height: 36px;  
+      background: var(--btn-bg);  
+      color: var(--btn-fg);  
+      border: none;  
+      border-radius: 50%;  
+      display: flex;  
+      align-items: center;  
+      justify-content: center;  
+      cursor: pointer;  
+      transition: background-color 0.5s ease, color 0.5s ease;  
+    }  
+    #darkToggle svg {  
+      width: 20px;  
+      height: 20px;  
+      fill: var(--btn-fg);  
+      transition: fill 0.5s ease;  
+    }  
+    input,  
+    textarea,  
+    select {  
+      outline: none;  
+      box-shadow: none;  
+      transition: box-shadow 0.2s ease;  
+    }  
+    input:focus,  
+    textarea:focus,  
+    select:focus {  
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.5); /* 淡蓝光晕 */  
+    }  
+  </style>  
+</head>  
+<body>  
+  <button id="darkToggle" onclick="toggleDarkMode()">  
+    <svg viewBox="0 0 24 24"><path d="M12 2a9.93 9.93 0 00-7.07 2.93A10.01 10.01 0 0012 22a10 10 0 000-20zm0 18a7.93 7.93 0 01-5.66-2.34A8 8 0 0112 4a8 8 0 010 16z"/></svg>  
+  </button>  
+  <div class="container">  
+    <div class="card">  
+      <h2>业余无线电点名记录工具</h2>  
+      <div class="form-row">  
+        <input id="controller" placeholder="点名主控呼号" />  
+      </div>  
+      <div class="form-row">  
+        <input id="callsign" placeholder="呼号" />  
+        <input id="report" placeholder="信号报告" />  
+        <input id="qth" placeholder="QTH" />  
+      </div>  
+      <div class="form-row">  
+        <input id="device" list="deviceList" placeholder="设备" />  
+        <input id="power" placeholder="功率" />  
+        <input id="antenna" list="antennaList" placeholder="天线" />  
+        <input id="height" placeholder="高度" />  
+      </div>  
+      <div class="form-row">  
+        <button onclick="addLog()">添加记录</button>  
+        <button onclick="exportExcel()">导出 Excel</button>  
+        <button onclick="clearLog()">清空记录</button>  
+      </div>  
+    </div>  
+  
+    <div class="card">  
+      <h3>设备词典管理</h3>  
+      <div class="form-row">  
+        <input id="newDevice" placeholder="添加设备名称" />  
+        <button onclick="addDevice()">添加到设备词典</button>  
+      </div>  
+      <div class="form-row">  
+        <input type="file" id="deviceFileInput" accept=".txt" />  
+        <button onclick="importDeviceFromFile()">导入设备词库</button>  
+      </div>  
+  
+      <h3>天线词典管理</h3>  
+      <div class="form-row">  
+        <input id="newAntenna" placeholder="添加天线名称" />  
+        <button onclick="addAntenna()">添加到天线词典</button>  
+      </div>  
+      <div class="form-row">  
+        <input type="file" id="antennaFileInput" accept=".txt" />  
+        <button onclick="importAntennaFromFile()">导入天线词库</button>  
+      </div>  
+    </div>  
+  
+    <div class="card">  
+      <h3>点名记录</h3>  
+      <div style="overflow-x:auto">  
+        <table id="logTable">  
+          <thead>  
+            <tr><th>#</th><th>时间</th><th>点名主控</th><th>呼号</th><th>信号报告</th><th>QTH</th><th>设备</th><th>功率</th><th>天线</th><th>高度</th></tr>  
+          </thead>  
+          <tbody></tbody>  
+        </table>  
+      </div>  
+    </div>  
+  </div>  
+  
+  <datalist id="deviceList"></datalist>  
+  <datalist id="antennaList"></datalist>  
+  
+  <script>  
+    let logData = JSON.parse(localStorage.getItem('logData') || '[]');  
+    let deviceDict = JSON.parse(localStorage.getItem('deviceDict') || '[]');  
+    let antennaDict = JSON.parse(localStorage.getItem('antennaDict') || '[]');  
+  
+    function renderDict(id, data) {  
+      const list = document.getElementById(id);  
+      list.innerHTML = data.map(d => `<option value="${d}">`).join('');  
+    }  
+  
+    function renderTable() {  
+      const tbody = document.querySelector("#logTable tbody");  
+      tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');  
+    }  
+  
+    function addLog() {  
+      const now = new Date();  
+      const timeStr = now.toTimeString().slice(0,5);  
+      const row = [  
+        timeStr,  
+        document.getElementById("controller").value.trim(),  
+        document.getElementById("callsign").value.trim(),  
+        document.getElementById("report").value.trim(),  
+        document.getElementById("qth").value.trim(),  
+        document.getElementById("device").value.trim(),  
+        document.getElementById("power").value.trim(),  
+        document.getElementById("antenna").value.trim(),  
+        document.getElementById("height").value.trim(),  
+      ];  
+      logData.push(row);  
+      localStorage.setItem("logData", JSON.stringify(logData));  
+      renderTable();  
+  
+      // 添加完后清空除主控外的输入框  
+      document.getElementById("callsign").value = "";  
+      document.getElementById("report").value = "";  
+      document.getElementById("qth").value = "";  
+      document.getElementById("device").value = "";  
+      document.getElementById("power").value = "";  
+      document.getElementById("antenna").value = "";  
+      document.getElementById("height").value = "";  
+    }  
+  
+    function clearLog() {  
+      if (confirm("确定清空所有记录？")) {  
+        logData = [];  
+        localStorage.removeItem("logData");  
+        renderTable();  
+      }  
+    }  
+  
+    function addDevice() {  
+      const val = document.getElementById("newDevice").value.trim();  
+      if (val && !deviceDict.includes(val)) {  
+        deviceDict.push(val);  
+        deviceDict.sort();  
+        localStorage.setItem("deviceDict", JSON.stringify(deviceDict));  
+        renderDict("deviceList", deviceDict);  
+      }  
+    }  
+  
+    function importDeviceFromFile() {  
+      const file = document.getElementById("deviceFileInput").files[0];  
+      if (!file) return;  
+      const reader = new FileReader();  
+      reader.onload = e => {  
+        const lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);  
+        lines.forEach(l => { if (!deviceDict.includes(l)) deviceDict.push(l); });  
+        deviceDict.sort();  
+        localStorage.setItem("deviceDict", JSON.stringify(deviceDict));  
+        renderDict("deviceList", deviceDict);  
+      };  
+      reader.readAsText(file);  
+    }  
+  
+    function addAntenna() {  
+      const val = document.getElementById("newAntenna").value.trim();  
+      if (val && !antennaDict.includes(val)) {  
+        antennaDict.push(val);  
+        antennaDict.sort();  
+        localStorage.setItem("antennaDict", JSON.stringify(antennaDict));  
+        renderDict("antennaList", antennaDict);  
+      }  
+    }  
+  
+    function importAntennaFromFile() {  
+      const file = document.getElementById("antennaFileInput").files[0];  
+      if (!file) return;  
+      const reader = new FileReader();  
+      reader.onload = e => {  
+        const lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);  
+        lines.forEach(l => { if (!antennaDict.includes(l)) antennaDict.push(l); });  
+        antennaDict.sort();  
+        localStorage.setItem("antennaDict", JSON.stringify(antennaDict));  
+        renderDict("antennaList", antennaDict);  
+      };  
+      reader.readAsText(file);  
+    }  
+  
+    function exportExcel() {  
+      const grouped = {};  
+      for (const row of logData) {  
+        const controller = row[1];  
+        if (!grouped[controller]) grouped[controller] = [];  
+        grouped[controller].push(row);  
+      }  
+      const ws_data = [];  
+      for (const controller in grouped) {  
+        // 点名主控分两列，后面留空占位  
+        ws_data.push(["点名主控:", controller, "", "", "", "", "", "", "", ""]);  
+        ws_data.push(["#", "时间", "呼号", "信号报告", "QTH", "设备", "功率", "天线", "高度", ""]);  
+        grouped[controller].forEach((r, i) => {  
+          const [, , callsign, report, qth, device, power, antenna, height] = r;  
+          const time = r[0];  
+          ws_data.push([i + 1, time, callsign, report, qth, device, power, antenna, height, ""]);  
+        });  
+        ws_data.push([]);  
+      }  
+  
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);  
+  
+      // 样式设置：全部单元格水平垂直居中  
+      for (let i = 0; i < ws_data.length; i++) {  
+        for (let col = 0; col < 10; col++) {  
+          const cellRef = XLSX.utils.encode_cell({ r: i, c: col });  
+          if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };  
+          ws[cellRef].s = {  
+            alignment: { horizontal: "center", vertical: "center" },  
+          };  
+        }  
+        // 主控行加黄底加粗  
+        if (ws_data[i][0] === "点名主控:") {  
+          for (let col = 0; col < 10; col++) {  
+            const cellRef = XLSX.utils.encode_cell({ r: i, c: col });  
+            ws[cellRef].s = {  
+              fill: { patternType: "solid", fgColor: { rgb: "FFFF99" } },  
+              font: { bold: true },  
+              alignment: { horizontal: "center", vertical: "center" },  
+            };  
+          }  
+        }  
+      }  
+  
+      const wb = XLSX.utils.book_new();  
+      XLSX.utils.book_append_sheet(wb, ws, "点名记录");  
+      XLSX.writeFile(wb, `Radio_Log_${new Date().toISOString().slice(0, 10)}.xlsx`);  
+    }  
+  
+    function toggleDarkMode() {  
+      document.body.classList.toggle("dark");  
+    }  
+  
+    renderDict("deviceList", deviceDict);  
+    renderDict("antennaList", antennaDict);  
+    renderTable();  
+  </script>  
+  <footer style="text-align:center; margin-top:2em; font-size:0.8em; color: #555;">  
+    作者 Mazha0309 / BG5CRL  
+  </footer>  
+  <footer style="width: 100%; margin-top: 2rem; text-align: center;">  
+    <a  
+      href="https://github.com/Mazha0309/BG5CRL-Log-tool"  
+      target="_blank"  
+      title="GitHub 仓库"  
+      style="display: inline-block; width: 20px; height: 20px; opacity: 0.6; transition: opacity 0.2s;"  
+      onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6"  
+    >  
+      <svg  
+        xmlns="http://www.w3.org/2000/svg"  
+        fill="currentColor"  
+        viewBox="0 0 24 24"  
+        style="width: 100%; height: 100%; color: gray;"  
+      >  
+        <path  
+          d="M12 0.297C5.373 0.297 0 5.67 0 12.297c0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577   
+           0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.757-1.333-1.757-1.089-.745.083-.729.083-.729   
+           1.205.084 1.84 1.236 1.84 1.236 1.07 1.834 2.807 1.304 3.492.997.108-.775.418-1.305.762-1.604-2.665-.3-5.466-1.335-5.466-5.93   
+           0-1.31.468-2.38 1.236-3.22-.123-.303-.535-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.52 11.52 0 0 1 3-.404   
+           11.5 11.5 0 0 1 3 .404c2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.241 2.873.118 3.176.77.84   
+           1.235 1.91 1.235 3.22 0 4.61-2.803 5.625-5.475 5.92.43.37.823 1.102.823 2.222   
+           0 1.604-.015 2.896-.015 3.286 0 .32.218.694.825.576C20.565 22.092 24 17.592 24 12.297   
+           24 5.67 18.627.297 12 .297z"  
+        />  
+      </svg>  
+    </a>  
+  </footer>  
+</body>  
 </html>
