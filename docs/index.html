@@ -177,6 +177,7 @@
         <button onclick="addLog()">添加记录</button>  
         <button onclick="exportExcel()">导出 Excel</button>  
         <button onclick="clearLog()">清空记录</button>  
+        <button id="undoBtn" onclick="undoLastLog()" disabled>撤销</button>
       </div>  
     </div>  
   
@@ -461,6 +462,29 @@
     renderDatalist(deviceSet, deviceList);
     renderDatalist(antennaSet, antennaList);
     });
+    
+    function undoLastLog() {
+    if (logData.length === 0) {
+      alert("没有记录可以撤销了！");
+      return;
+    }
+    logData.pop();
+    localStorage.setItem("logData", JSON.stringify(logData));
+    renderTable();
+    updateUndoButton();
+  }
+  
+  function updateUndoButton() {
+    const btn = document.getElementById("undoBtn");
+    btn.disabled = logData.length === 0;
+  }
+
+  // 每次渲染表格时更新按钮状态
+  function renderTable() {
+    const tbody = document.querySelector("#logTable tbody");
+    tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');
+    updateUndoButton();
+  }
   </script>
   <footer style="text-align:center; margin-top:2em; font-size:0.8em; color: #555;">  
     作者 Mazha0309 / BG5CRL  
