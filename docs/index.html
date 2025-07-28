@@ -472,9 +472,9 @@
     renderDatalist(antennaSet, antennaList);
     });
     
-    function undoLastLog() {
-    if (logData.length === 0) {
-      alert("没有记录可以撤销了！");
+      function undoLastLog() {
+      if (logData.length === 0) {
+        alert("没有记录可以撤销了！");
       return;
     }
     logData.pop();
@@ -483,52 +483,52 @@
     updateUndoButton();
   }
   
-  function updateUndoButton() {
-    const btn = document.getElementById("undoBtn");
-    btn.disabled = logData.length === 0;
-  }
+    function updateUndoButton() {
+      const btn = document.getElementById("undoBtn");
+      btn.disabled = logData.length === 0;
+    }
 
-  // 每次渲染表格时更新按钮状态
-  function renderTable() {
-    const tbody = document.querySelector("#logTable tbody");
-    tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');
-    updateUndoButton();
-  }
-  function exportJSON() {
-    const dataStr = JSON.stringify(logData, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
+    // 每次渲染表格时更新按钮状态
+    function renderTable() {
+      const tbody = document.querySelector("#logTable tbody");
+      tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');
+      updateUndoButton();
+    }
+    function exportJSON() {
+      const dataStr = JSON.stringify(logData, null, 2);
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Radio_Log_${new Date().toISOString().slice(0,10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Radio_Log_${new Date().toISOString().slice(0,10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
 
-  function importJSON(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const importedData = JSON.parse(e.target.result);
-        if (!Array.isArray(importedData)) throw new Error("JSON格式错误，应该是数组");
-        logData = importedData;
-        localStorage.setItem("logData", JSON.stringify(logData));
-        renderTable();
-        alert("导入成功！");
-      } catch (err) {
-        alert("导入失败：" + err.message);
-      }
-    };
-    reader.readAsText(file);
+    function importJSON(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const importedData = JSON.parse(e.target.result);
+          if (!Array.isArray(importedData)) throw new Error("JSON格式错误，应该是数组");
+          logData = importedData;
+          localStorage.setItem("logData", JSON.stringify(logData));
+          renderTable();
+          alert("导入成功！");
+        } catch (err) {
+          alert("导入失败：" + err.message);
+        }
+      };
+      reader.readAsText(file);
 
-    // 清空文件输入，方便下次导入
-    event.target.value = "";
-  }
+      // 清空文件输入，方便下次导入
+      event.target.value = "";
+    }
   </script>
   <footer style="text-align:center; margin-top:2em; font-size:0.8em; color: #555;">  
     作者 Mazha0309 / BG5CRL  
