@@ -132,6 +132,24 @@
     select:focus {  
       box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.5); /* 淡蓝光晕 */  
     }  
+    input,
+    textarea,
+    select {
+      transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+    /* 浅色模式 */
+    input {
+      background-color: white;
+      color: black;
+      border: 1px solid #ccc;
+    }
+
+    /* 深色模式 */
+    .dark input {
+      background-color: #1e1e1e;
+      color: #f0f0f0;
+      border: 1px solid #555;
+    }
   </style>  
 </head>  
 <body>  
