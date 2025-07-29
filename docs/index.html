@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />  
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />  
   <title>业余无线电点名记录工具</title>  
+  <!-- 引入SheetJS库用于Excel操作 -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.min.js"></script>
+  
+  <!-- 页面样式 -->
   <style>  
     :root {  
       --bg: #f2f7fd;  
@@ -229,37 +232,82 @@
   <datalist id="antennaList"></datalist>  
   
   <script>
+    /*********************
+     * 全局变量声明
+     *********************/
+    // 日志数据，从本地存储加载
     let logData = JSON.parse(localStorage.getItem('logData') || '[]');
+    // 设备词典，从本地存储加载
     let deviceDict = JSON.parse(localStorage.getItem('deviceDict') || '[]');
+    // 天线词典，从本地存储加载
     let antennaDict = JSON.parse(localStorage.getItem('antennaDict') || '[]');
 
-    // 默认时间输入，格式HH:mm
+    /*********************
+     * 工具函数
+     *********************/
+    
+    /**
+     * 获取当前时间字符串（格式: HH:mm）
+     * @returns {string} 当前时间字符串
+     */
     function getCurrentTimeStr() {
       const now = new Date();
-      return now.toTimeString().slice(0,5);
+      return now.toTimeString().slice(0, 5);
     }
 
+    /**
+     * 渲染数据词典到datalist
+     * @param {string} id - datalist元素ID
+     * @param {Array} data - 词典数据数组
+     */
     function renderDict(id, data) {
       const list = document.getElementById(id);
       list.innerHTML = data.map(d => `<option value="${d}">`).join('');
     }
 
+    /**
+     * 渲染日志表格
+     */
     function renderTable() {
       const tbody = document.querySelector("#logTable tbody");
-      tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');
+      tbody.innerHTML = logData.map((r, i) => 
+        `<tr>
+          <td>${i+1}</td>
+          ${r.map(v => `<td>${v}</td>`).join('')}
+        </tr>`
+      ).join('');
+      // 更新撤销按钮状态
+      updateUndoButton();
     }
 
+    /**
+     * 更新撤销按钮状态
+     */
+    function updateUndoButton() {
+      const btn = document.getElementById("undoBtn");
+      btn.disabled = logData.length === 0;
+    }
+
+    /*********************
+     * 日志操作函数
+     *********************/
+    
+    /**
+     * 添加日志记录
+     */
     function addLog() {
       const controllerVal = document.getElementById("controller").value.trim();
+      
+      // 验证主控呼号
       if (!controllerVal) {
         alert("请填写点名主控呼号！");
         return;
       }
-      // 取时间输入框的值，没有就用当前时间
-      let timeInput = document.getElementById("time");
-      let timeStr = timeInput ? timeInput.value : getCurrentTimeStr();
-      if (!timeStr) timeStr = getCurrentTimeStr();
+      
+      // 获取时间值（使用当前时间作为默认值）
+      let timeStr = getCurrentTimeStr();
 
+      // 创建新记录行
       const row = [
         timeStr,
         controllerVal,
@@ -271,11 +319,13 @@
         document.getElementById("antenna").value.trim(),
         document.getElementById("height").value.trim(),
       ];
+      
+      // 添加到日志数据
       logData.push(row);
       localStorage.setItem("logData", JSON.stringify(logData));
       renderTable();
 
-      // 清空除主控和时间外输入框
+      // 清空输入字段（保留主控呼号）
       document.getElementById("callsign").value = "";
       document.getElementById("report").value = "";
       document.getElementById("qth").value = "";
@@ -283,9 +333,11 @@
       document.getElementById("power").value = "";
       document.getElementById("antenna").value = "";
       document.getElementById("height").value = "";
-      if(timeInput) timeInput.value = getCurrentTimeStr(); // 添加完默认时间重置
     }
 
+    /**
+     * 清空日志
+     */
     function clearLog() {
       if (confirm("确定清空所有记录？")) {
         logData = [];
@@ -294,22 +346,47 @@
       }
     }
 
+    /**
+     * 撤销上一条日志
+     */
+    function undoLastLog() {
+      if (logData.length === 0) {
+        alert("没有记录可以撤销了！");
+        return;
+      }
+      logData.pop();
+      localStorage.setItem("logData", JSON.stringify(logData));
+      renderTable();
+    }
+
+    /*********************
+     * 词典管理函数
+     *********************/
+    
+    /**
+     * 添加新设备到词典
+     */
     function addDevice() {
       const input = document.getElementById("newDevice");
       const val = input.value.trim();
+      
       if (val && !deviceDict.includes(val)) {
         deviceDict.push(val);
         deviceDict.sort();
         localStorage.setItem("deviceDict", JSON.stringify(deviceDict));
         renderDict("deviceList", deviceDict);
       }
-      input.value = "";  // 添加完清空输入框
+      input.value = "";
     }
 
+    /**
+     * 从文件导入设备词典
+     */
     function importDeviceFromFile() {
       const fileInput = document.getElementById("deviceFileInput");
       const file = fileInput.files[0];
       if (!file) return;
+      
       const reader = new FileReader();
       reader.onload = e => {
         let lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
@@ -318,226 +395,167 @@
         deviceDict = Array.from(currentSet).sort();
         localStorage.setItem("deviceDict", JSON.stringify(deviceDict));
         renderDict("deviceList", deviceDict);
-        fileInput.value = "";  // 导入完清空文件选择
+        fileInput.value = "";
       };
       reader.readAsText(file);
     }
 
+    /**
+     * 添加新天线到词典
+     */
     function addAntenna() {
       const input = document.getElementById("newAntenna");
       const val = input.value.trim();
+      
       if (val && !antennaDict.includes(val)) {
         antennaDict.push(val);
         antennaDict.sort();
         localStorage.setItem("antennaDict", JSON.stringify(antennaDict));
         renderDict("antennaList", antennaDict);
       }
-      input.value = "";  // 添加完清空输入框
+      input.value = "";
     }
 
-function exportExcel() {
-  const grouped = {};
-  for (const row of logData) {
-    const controller = row[1];
-    if (!grouped[controller]) grouped[controller] = [];
-    grouped[controller].push(row);
-  }
-
-  // 定义带备注的10列表头
-  const header = ["#", "时间", "呼号", "信号报告", "QTH", "设备", "功率", "天线", "高度", "备注"];
-  const ws_data = [header];
-
-  // 全局序号计数器（从1开始）
-  let globalIndex = 1;
-  
-  for (const controller in grouped) {
-    // 获取该组第一条记录的时间
-    const firstTime = grouped[controller][0][0];
-    
-    // 主控信息行：使用该组第一条记录的时间
-    ws_data.push(["点名主控:", firstTime, controller, ...Array(7).fill("")]);
-    
-    grouped[controller].forEach(r => {
-      const [time, , callsign, report, qth, device, power, antenna, height] = r;
-      // 使用全局连续序号
-      ws_data.push([
-        globalIndex++, // 使用全局连续序号
-        time, 
-        callsign, 
-        report, 
-        qth, 
-        device, 
-        power, 
-        antenna, 
-        height, 
-        ""  // 空备注列
-      ]);
-    });
-  }
-
-  const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-  // 统一样式配置
-  const border = {
-    top: { style: "thin", color: { rgb: "CCCCCC" } },
-    bottom: { style: "thin", color: { rgb: "CCCCCC" } },
-    left: { style: "thin", color: { rgb: "CCCCCC" } },
-    right: { style: "thin", color: { rgb: "CCCCCC" } }
-  };
-
-  const headerStyle = {
-    font: { bold: true },
-    fill: { fgColor: { rgb: "F2F2F2" } },
-    alignment: { horizontal: "center", vertical: "center" },
-    border
-  };
-
-  const controllerStyle = {
-    font: { bold: true },
-    fill: { fgColor: { rgb: "FFFFCC" } },
-    alignment: { horizontal: "center", vertical: "center" },
-    border
-  };
-
-  const cellStyle = {
-    alignment: { horizontal: "center", vertical: "center" },
-    border
-  };
-
-  // 应用样式到所有单元格
-  const range = XLSX.utils.decode_range(ws['!ref']);
-  for (let R = range.s.r; R <= range.e.r; ++R) {
-    for (let C = range.s.c; C <= range.e.c; ++C) {
-      const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
-      if (!ws[cell_ref]) ws[cell_ref] = {t: 's', v: ''};
+    /**
+     * 从文件导入天线词典
+     */
+    function importAntennaFromFile() {
+      const fileInput = document.getElementById("antennaFileInput");
+      const file = fileInput.files[0];
+      if (!file) return;
       
-      if (R === 0) {
-        ws[cell_ref].s = headerStyle;  // 表头样式
-      } else if (ws_data[R][0] === "点名主控:") {
-        // 主控行整行应用黄色背景
-        ws[cell_ref].s = controllerStyle;
-      } else {
-        ws[cell_ref].s = cellStyle;    // 数据行样式
-      }
-    }
-  }
-
-  // 设置列宽（自适应+手动调整）
-  const colWidths = Array(10).fill(10); // 默认10字符宽
-  colWidths[0] = 8;   // #列
-  colWidths[1] = 10;  // 时间列
-  colWidths[2] = 15;  // 呼号列（主控信息现在在此列）
-  colWidths[4] = 18;  // QTH列
-  colWidths[5] = 15;  // 设备列
-  colWidths[7] = 18;  // 天线列
-  ws['!cols'] = colWidths.map(w => ({ width: w }));
-
-  // 创建文件
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "点名记录");
-  
-  const now = new Date();
-  const filename = `点名记录_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.xlsx`;
-  
-  XLSX.writeFile(wb, filename);
-}
-
-    function toggleDarkMode() {
-      document.body.classList.toggle("dark");
+      const reader = new FileReader();
+      reader.onload = e => {
+        let lines = e.target.result.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+        const currentSet = new Set(antennaDict);
+        lines.forEach(l => currentSet.add(l));
+        antennaDict = Array.from(currentSet).sort();
+        localStorage.setItem("antennaDict", JSON.stringify(antennaDict));
+        renderDict("antennaList", antennaDict);
+        fileInput.value = "";
+      };
+      reader.readAsText(file);
     }
 
-    // 页面初始化
-    renderDict("deviceList", deviceDict);
-    renderDict("antennaList", antennaDict);
-    renderTable();
-  
-    window.addEventListener('beforeunload', () => {
-      localStorage.removeItem('deviceDict');
-      localStorage.removeItem('antennaDict');
-    });
-
-    const deviceSet = new Set(deviceDict);   // 读本地缓存转成Set
-    const antennaSet = new Set(antennaDict);
-
-    const deviceList = document.getElementById('deviceList');
-    const antennaList = document.getElementById('antennaList');
-
-    function renderDatalist(set, datalistElement) {
-      datalistElement.innerHTML = '';
-      Array.from(set).sort().forEach(item => {
-        const option = document.createElement('option');
-        option.value = item;
-        datalistElement.appendChild(option);
-      });
-    }
-
-    function updateDeviceDict(lines) {
-      deviceSet.clear();
-      lines.forEach(line => {
-        const item = line.trim();
-        if (item) deviceSet.add(item);
-      });
-      renderDatalist(deviceSet, deviceList);
-      console.log("设备词库更新完成，数量:", deviceSet.size);
-    }
-
-    function updateAntennaDict(lines) {
-      antennaSet.clear();
-      lines.forEach(line => {
-        const item = line.trim();
-        if (item) antennaSet.add(item);
-      });
-      renderDatalist(antennaSet, antennaList);
-      console.log("天线词库更新完成，数量:", antennaSet.size);
-    }
-
-    window.addEventListener("DOMContentLoaded", () => {
-      const deviceDictURL = "https://raw.githubusercontent.com/Mazha0309/BG5CRL-Log-tool/5904eb8c2c36aeef662ca3721c5bc390ac5fc8ff/device.txt";
-      const antennaDictURL = "https://raw.githubusercontent.com/Mazha0309/BG5CRL-Log-tool/5904eb8c2c36aeef662ca3721c5bc390ac5fc8ff/antenna.txt";
-
-      fetch(deviceDictURL)
-        .then(res => res.text())
-        .then(text => {
-          const lines = text.split(/\r?\n/).filter(l => l.trim());
-          updateDeviceDict(lines);
-        })
-        .catch(err => console.error("设备词库加载失败", err));
-
-    fetch(antennaDictURL)
-      .then(res => res.text())
-      .then(text => {
-        const lines = text.split(/\r?\n/).filter(l => l.trim());
-        updateAntennaDict(lines);
-      })
-      .catch(err => console.error("天线词库加载失败", err));
-
-    // 渲染本地缓存词典（若有）
-    renderDatalist(deviceSet, deviceList);
-    renderDatalist(antennaSet, antennaList);
-    });
+    /*********************
+     * 导入导出函数
+     *********************/
     
-      function undoLastLog() {
-      if (logData.length === 0) {
-        alert("没有记录可以撤销了！");
-      return;
-    }
-    logData.pop();
-    localStorage.setItem("logData", JSON.stringify(logData));
-    renderTable();
-    updateUndoButton();
-  }
-  
-    function updateUndoButton() {
-      const btn = document.getElementById("undoBtn");
-      btn.disabled = logData.length === 0;
+    /**
+     * 导出Excel文件
+     */
+    function exportExcel() {
+      // 按主控呼号分组日志数据
+      const grouped = {};
+      for (const row of logData) {
+        const controller = row[1];
+        if (!grouped[controller]) grouped[controller] = [];
+        grouped[controller].push(row);
+      }
+
+      // 定义Excel表头
+      const header = ["#", "时间", "呼号", "信号报告", "QTH", "设备", "功率", "天线", "高度", "备注"];
+      const ws_data = [header];
+
+      // 全局序号计数器（跨主控组连续）
+      let globalIndex = 1;
+      
+      // 处理每个主控组的数据
+      for (const controller in grouped) {
+        // 获取该组第一条记录的时间
+        const firstTime = grouped[controller][0][0];
+        
+        // 添加主控信息行
+        ws_data.push(["点名主控:", firstTime, controller, ...Array(7).fill("")]);
+        
+        // 添加该主控组的所有记录
+        grouped[controller].forEach(r => {
+          const [time, , callsign, report, qth, device, power, antenna, height] = r;
+          ws_data.push([
+            globalIndex++, // 全局连续序号
+            time, 
+            callsign, 
+            report, 
+            qth, 
+            device, 
+            power, 
+            antenna, 
+            height, 
+            ""  // 备注列留空
+          ]);
+        });
+      }
+
+      // 创建工作表
+      const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+      // 统一样式配置
+      const border = {
+        top: { style: "thin", color: { rgb: "CCCCCC" } },
+        bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+        left: { style: "thin", color: { rgb: "CCCCCC" } },
+        right: { style: "thin", color: { rgb: "CCCCCC" } }
+      };
+
+      const headerStyle = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "F2F2F2" } }, // 浅灰背景
+        alignment: { horizontal: "center", vertical: "center" },
+        border
+      };
+
+      const controllerStyle = {
+        font: { bold: true },
+        fill: { fgColor: { rgb: "FFFFCC" } }, // 淡黄背景
+        alignment: { horizontal: "center", vertical: "center" },
+        border
+      };
+
+      const cellStyle = {
+        alignment: { horizontal: "center", vertical: "center" },
+        border
+      };
+
+      // 应用样式到所有单元格
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
+          if (!ws[cell_ref]) ws[cell_ref] = {t: 's', v: ''};
+          
+          if (R === 0) {
+            ws[cell_ref].s = headerStyle;  // 表头样式
+          } else if (ws_data[R][0] === "点名主控:") {
+            ws[cell_ref].s = controllerStyle; // 主控行样式
+          } else {
+            ws[cell_ref].s = cellStyle;     // 数据行样式
+          }
+        }
+      }
+
+      // 设置列宽
+      const colWidths = Array(10).fill(10); // 默认宽度
+      colWidths[0] = 8;   // 序号列
+      colWidths[1] = 10;  // 时间列
+      colWidths[2] = 15;  // 呼号列
+      colWidths[4] = 18;  // QTH列
+      colWidths[5] = 15;  // 设备列
+      colWidths[7] = 18;  // 天线列
+      ws['!cols'] = colWidths.map(w => ({ width: w }));
+
+      // 创建工作簿并保存文件
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "点名记录");
+      
+      const now = new Date();
+      const filename = `点名记录_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.xlsx`;
+      
+      XLSX.writeFile(wb, filename);
     }
 
-    // 每次渲染表格时更新按钮状态
-    function renderTable() {
-      const tbody = document.querySelector("#logTable tbody");
-      tbody.innerHTML = logData.map((r, i) => `<tr><td>${i+1}</td>${r.map(v => `<td>${v}</td>`).join('')}</tr>`).join('');
-      updateUndoButton();
-    }
+    /**
+     * 导出JSON文件
+     */
     function exportJSON() {
       const dataStr = JSON.stringify(logData, null, 2);
       const blob = new Blob([dataStr], { type: "application/json" });
@@ -552,14 +570,20 @@ function exportExcel() {
       URL.revokeObjectURL(url);
     }
 
+    /**
+     * 导入JSON文件
+     * @param {Event} event - 文件输入事件
+     */
     function importJSON(event) {
       const file = event.target.files[0];
       if (!file) return;
+      
       const reader = new FileReader();
       reader.onload = e => {
         try {
           const importedData = JSON.parse(e.target.result);
           if (!Array.isArray(importedData)) throw new Error("JSON格式错误，应该是数组");
+          
           logData = importedData;
           localStorage.setItem("logData", JSON.stringify(logData));
           renderTable();
@@ -569,10 +593,94 @@ function exportExcel() {
         }
       };
       reader.readAsText(file);
-
-      // 清空文件输入，方便下次导入
-      event.target.value = "";
+      event.target.value = ""; // 清空文件输入
     }
+
+    /*********************
+     * 主题切换函数
+     *********************/
+    
+    /**
+     * 切换暗色/亮色模式
+     */
+    function toggleDarkMode() {
+      document.body.classList.toggle("dark");
+    }
+
+    /*********************
+     * 初始化函数
+     *********************/
+    
+    /**
+     * 从GitHub加载词典数据
+     */
+    async function loadDictionaries() {
+      const deviceDictURL = "https://raw.githubusercontent.com/Mazha0309/BG5CRL-Log-tool/5904eb8c2c36aeef662ca3721c5bc390ac5fc8ff/device.txt";
+      const antennaDictURL = "https://raw.githubusercontent.com/Mazha0309/BG5CRL-Log-tool/5904eb8c2c36aeef662ca3721c5bc390ac5fc8ff/antenna.txt";
+
+      try {
+        // 加载设备词典
+        const deviceRes = await fetch(deviceDictURL);
+        const deviceText = await deviceRes.text();
+        const deviceLines = deviceText.split(/\r?\n/).filter(l => l.trim());
+        updateDeviceDict(deviceLines);
+        
+        // 加载天线词典
+        const antennaRes = await fetch(antennaDictURL);
+        const antennaText = await antennaRes.text();
+        const antennaLines = antennaText.split(/\r?\n/).filter(l => l.trim());
+        updateAntennaDict(antennaLines);
+      } catch (err) {
+        console.error("词典加载失败:", err);
+      }
+    }
+
+    /**
+     * 更新设备词典
+     * @param {Array} lines - 设备名称数组
+     */
+    function updateDeviceDict(lines) {
+      const deviceSet = new Set(deviceDict);
+      lines.forEach(line => {
+        const item = line.trim();
+        if (item) deviceSet.add(item);
+      });
+      deviceDict = Array.from(deviceSet).sort();
+      renderDict("deviceList", deviceDict);
+    }
+
+    /**
+     * 更新天线词典
+     * @param {Array} lines - 天线名称数组
+     */
+    function updateAntennaDict(lines) {
+      const antennaSet = new Set(antennaDict);
+      lines.forEach(line => {
+        const item = line.trim();
+        if (item) antennaSet.add(item);
+      });
+      antennaDict = Array.from(antennaSet).sort();
+      renderDict("antennaList", antennaDict);
+    }
+
+    /*********************
+     * 页面初始化
+     *********************/
+    window.addEventListener("DOMContentLoaded", () => {
+      // 渲染词典和表格
+      renderDict("deviceList", deviceDict);
+      renderDict("antennaList", antennaDict);
+      renderTable();
+      
+      // 加载远程词典
+      loadDictionaries();
+      
+      // 页面卸载时清理部分本地存储
+      window.addEventListener('beforeunload', () => {
+        localStorage.removeItem('deviceDict');
+        localStorage.removeItem('antennaDict');
+      });
+    });
   </script>
   <footer style="text-align:center; margin-top:2em; font-size:0.8em; color: #555;">  
     作者 Mazha0309 / BG5CRL  
