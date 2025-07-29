@@ -76,6 +76,5 @@
 ---
 
 **作者**: Mazha0309 / BG5CRL  
-**开发支持**: ChatGPT GPT4o、Deepseek R1
 
 欢迎反馈和贡献代码！使用中遇到问题或有改进建议，请提交Issue或Pull Request。
