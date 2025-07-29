@@ -445,7 +445,6 @@
      * 导出Excel文件
      */
     function exportExcel() {
-      // 按主控呼号分组日志数据
       const grouped = {};
       for (const row of logData) {
         const controller = row[1];
@@ -453,26 +452,28 @@
         grouped[controller].push(row);
       }
 
-      // 定义Excel表头
+      // 定义带备注的10列表头
       const header = ["#", "时间", "呼号", "信号报告", "QTH", "设备", "功率", "天线", "高度", "备注"];
       const ws_data = [header];
 
-      // 全局序号计数器（跨主控组连续）
+      // 全局序号计数器（从1开始）
       let globalIndex = 1;
-      
-      // 处理每个主控组的数据
+  
       for (const controller in grouped) {
         // 获取该组第一条记录的时间
         const firstTime = grouped[controller][0][0];
-        
-        // 添加主控信息行
-        ws_data.push(["点名主控:", firstTime, controller, ...Array(7).fill("")]);
-        
-        // 添加该主控组的所有记录
+    
+        // 智能计算主控时间：减1分钟并智能取整
+        const controllerTime = calculateControllerTime(firstTime);
+    
+        // 主控信息行
+        ws_data.push(["点名主控:", controllerTime, controller, ...Array(7).fill("")]);
+    
         grouped[controller].forEach(r => {
           const [time, , callsign, report, qth, device, power, antenna, height] = r;
+          // 使用全局连续序号
           ws_data.push([
-            globalIndex++, // 全局连续序号
+            globalIndex++, // 使用全局连续序号
             time, 
             callsign, 
             report, 
@@ -481,12 +482,11 @@
             power, 
             antenna, 
             height, 
-            ""  // 备注列留空
+            ""  // 空备注列
           ]);
         });
       }
 
-      // 创建工作表
       const ws = XLSX.utils.aoa_to_sheet(ws_data);
 
       // 统一样式配置
@@ -499,14 +499,14 @@
 
       const headerStyle = {
         font: { bold: true },
-        fill: { fgColor: { rgb: "F2F2F2" } }, // 浅灰背景
+        fill: { fgColor: { rgb: "F2F2F2" } },
         alignment: { horizontal: "center", vertical: "center" },
         border
       };
 
       const controllerStyle = {
         font: { bold: true },
-        fill: { fgColor: { rgb: "FFFFCC" } }, // 淡黄背景
+        fill: { fgColor: { rgb: "FFFFCC" } },
         alignment: { horizontal: "center", vertical: "center" },
         border
       };
@@ -522,20 +522,21 @@
         for (let C = range.s.c; C <= range.e.c; ++C) {
           const cell_ref = XLSX.utils.encode_cell({r: R, c: C});
           if (!ws[cell_ref]) ws[cell_ref] = {t: 's', v: ''};
-          
+      
           if (R === 0) {
             ws[cell_ref].s = headerStyle;  // 表头样式
           } else if (ws_data[R][0] === "点名主控:") {
-            ws[cell_ref].s = controllerStyle; // 主控行样式
+            // 主控行整行应用黄色背景
+            ws[cell_ref].s = controllerStyle;
           } else {
-            ws[cell_ref].s = cellStyle;     // 数据行样式
+            ws[cell_ref].s = cellStyle;    // 数据行样式
           }
         }
       }
 
-      // 设置列宽
-      const colWidths = Array(10).fill(10); // 默认宽度
-      colWidths[0] = 8;   // 序号列
+      // 设置列宽（自适应+手动调整）
+      const colWidths = Array(10).fill(10); // 默认10字符宽
+      colWidths[0] = 8;   // #列
       colWidths[1] = 10;  // 时间列
       colWidths[2] = 15;  // 呼号列
       colWidths[4] = 18;  // QTH列
@@ -543,16 +544,110 @@
       colWidths[7] = 18;  // 天线列
       ws['!cols'] = colWidths.map(w => ({ width: w }));
 
-      // 创建工作簿并保存文件
+      // 创建文件
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "点名记录");
-      
+  
       const now = new Date();
       const filename = `点名记录_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}.xlsx`;
-      
+  
       XLSX.writeFile(wb, filename);
     }
 
+    /**
+     * 智能计算主控时间
+     * 1. 减去1分钟
+     * 2. 如果结果与5/10的整数时间相差1分钟，则取整
+     * @param {string} timeStr - 原始时间字符串 (格式: "HH:mm" 或 "HH:mm:ss")
+     * @returns {string} 优化后的时间字符串
+     */
+     
+    function calculateControllerTime(timeStr) {
+      // 处理空值情况
+      if (!timeStr) return "";
+  
+      // 减去1分钟得到基础时间
+      const baseTime = subtractOneMinute(timeStr);
+  
+      // 提取小时和分钟
+      const timeParts = baseTime.split(':');
+      const hours = parseInt(timeParts[0], 10);
+      let minutes = parseInt(timeParts[1], 10);
+  
+      // 如果分钟数已经是5或10的倍数，直接返回
+      if (minutes % 5 === 0) return baseTime;
+  
+      // 计算最接近的5/10倍数时间
+      const nearestFive = Math.round(minutes / 5) * 5;
+      const nearestTen = Math.round(minutes / 10) * 10;
+     
+      // 计算与5/10倍数的差距
+      const diffToFive = Math.abs(minutes - nearestFive);
+      const diffToTen = Math.abs(minutes - nearestTen);
+  
+      // 优先处理10的倍数（更整洁）
+      if (diffToTen === 1) {
+        return formatTime(hours, nearestTen, timeParts[2]);
+      }
+  
+      // 其次处理5的倍数
+      if (diffToFive === 1) {
+        return formatTime(hours, nearestFive, timeParts[2]);
+      }
+  
+      // 否则返回减去1分钟后的时间
+      return baseTime;
+    }
+
+    /**
+     * 时间减1分钟辅助函数
+     * @param {string} timeStr - 原始时间字符串
+     * @returns {string} 减去1分钟后的时间字符串
+     */
+     
+    function subtractOneMinute(timeStr) {
+      // 提取小时和分钟部分
+      const timeParts = timeStr.split(':');
+      let hours = parseInt(timeParts[0], 10);
+      let minutes = parseInt(timeParts[1], 10);
+  
+      // 减去1分钟
+      minutes -= 1;
+  
+      // 处理分钟负数（跨小时）
+      if (minutes < 0) {
+        minutes = 59;
+        hours -= 1;
+    
+        // 处理小时负数（跨天）
+        if (hours < 0) {
+          hours = 23;
+        }
+      }
+  
+      // 返回时间字符串（保留原始秒数部分如果存在）
+      return formatTime(hours, minutes, timeParts[2]);
+    }
+
+    /**
+     * 格式化时间为字符串
+     * @param {number} hours - 小时
+     * @param {number} minutes - 分钟
+     * @param {string} [seconds] - 可选秒数
+     * @returns {string} 格式化的时间字符串
+     */
+     
+    function formatTime(hours, minutes, seconds) {
+      // 格式化为两位数
+      const formattedHours = hours.toString().padStart(2, '0');
+      const formattedMinutes = minutes.toString().padStart(2, '0');
+  
+      // 返回时间字符串
+      return seconds !== undefined 
+        ? `${formattedHours}:${formattedMinutes}:${seconds}`
+        : `${formattedHours}:${formattedMinutes}`;
+    }
+    
     /**
      * 导出JSON文件
      */
