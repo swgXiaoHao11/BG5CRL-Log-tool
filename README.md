@@ -5,9 +5,10 @@
 
 P.S.使用via浏览器时可能无法正常导入导出文件或文件名及扩展名混乱
 
-##体验本项目
+##体验本项目##
 **测试文件**:
-[BR5AI首次点名记录JSON文件]()
+[BR5AI首次点名记录JSON文件](https://github.com/Mazha0309/BG5CRL-Log-tool/blob/521e45eaaed84936c9d74cd10a7812f2abc9078a/BR5AI%E4%B8%AD%E7%BB%A7%E5%8F%B0%E7%BD%91%E7%82%B9%E5%90%8D%E8%AE%B0%E5%BD%95%E8%A1%A8.json)
+在本项目网页中导入JSON文件即可体验
 
 一款业余无线电点名记录管理工具，专为HAM无线电爱好者设计，支持完整的数据录入、管理和导出流程。
 
