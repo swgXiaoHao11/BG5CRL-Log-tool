@@ -3,6 +3,8 @@
 **访问地址**:  
 [https://Mazha0309.github.io/BG5CRL-Log-tool/](https://Mazha0309.github.io/BG5CRL-Log-tool/)
 
+P.S.使用via浏览器时可能无法正常导出文件或文件名及扩展名混乱
+
 一款专业的业余无线电点名记录管理工具，专为HAM无线电爱好者设计，支持完整的数据录入、管理和导出流程。
 
 ## 核心功能
