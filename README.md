@@ -34,4 +34,4 @@ https://Mazha0309.github.io/BG5CRL-Log-tool/
 
 欢迎反馈和贡献代码！
 
-**本项目多半数代码由ChatGPT GPT4o贡献**
+**本项目多半数代码由ChatGPT GPT4o、Deepseek R1和我贡献**
